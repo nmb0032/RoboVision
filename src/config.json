@@ -1,0 +1,8 @@
+{
+    "video" : null,
+    "buffer": 64,
+    "color" : {
+                "upper": [64,255,255],
+                "lower": [29, 86,  6]
+              }
+}

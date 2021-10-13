@@ -12,7 +12,7 @@ def find_marker(image):
         #find contours in image and keeg the largest one
         cnts = cv2.findContours(edged.copy(), cv2.RETR_LIST,  cv2.CHAIN_APPROX_SIMPLE)
         cnts = imutils.grab_contours(cnts)
-        c = max(cnts, key = cv2.contourArea())
+        c = max(cnts, key = cv2.contourArea)
 
         # Compute the bounding box of the paper region
         return cv2.minAreaRect(c)
