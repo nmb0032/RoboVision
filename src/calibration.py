@@ -10,6 +10,7 @@
 
 import cv2
 import argparse
+import json
 from operator import xor
 
 
@@ -59,6 +60,16 @@ def get_trackbar_values(range_filter):
 
     return values
 
+def save(min: tuple, max: tuple):
+    print(f"Saving {min} and {max} values to config.json")
+    with open("config.json", "r") as file:
+        config = json.load(file)
+    config["color"]["lower"] = list(min)
+    config["color"]["upper"] = list(max)
+    with open("config.json", "w") as file:
+        json.dump(config, file, indent=4)
+    print("Save Successful")
+    
 
 def main():
     args = get_arguments()
@@ -99,9 +110,17 @@ def main():
         else:
             cv2.imshow("Original", image)
             cv2.imshow("Thresh", thresh)
+        
 
-        if cv2.waitKey(1) & 0xFF is ord('q'):
+        k = cv2.waitKey(1)
+        if k == ord('q'):
             break
+        elif k == ord('s'):
+            save((v1_min,v2_min,v3_min), (v1_max,v2_max,v3_max))
+            break
+
+    cv2.destroyAllWindows()
+        
 
 
 if __name__ == '__main__':
