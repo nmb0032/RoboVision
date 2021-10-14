@@ -21,6 +21,28 @@ def applyFilters(frame, lower, upper):
 
     return mask
 
+def get_contours(frame):
+    cnts = cv2.findContours(frame.copy(), cv2.RETR_EXTERNAL,
+                            cv2.CHAIN_APPROX_SIMPLE)
+    cnts = imutils.grab_contours(cnts)
+    return cnts
+
+
+def draw_bounding_box(frame, cnts):
+        center = None
+
+        if len(cnts) > 0:
+            c = max(cnts, key=cv2.contourArea)
+            ((x, y), radius) = cv2.minEnclosingCircle(c)
+            M = cv2.moments(c)
+            center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
+
+            if radius > 10:
+
+                cv2.circle(frame, (int(x), int(y)), int(radius),
+                            (0,255,255), 2)
+                cv2.circle(frame, center, 5, (0,0,255), -1)
+        return frame
 
 
 def load(filename):
@@ -58,7 +80,12 @@ def performCapture(config):
         if frame is None or cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
-        cv2.imshow("resize, blur, hsv", applyFilters(frame, lowerRGB, upperRGB))
+        #computer vision
+        filter = applyFilters(frame, lowerRGB, upperRGB)
+        cnts  = get_contours(filter)
+        frame = draw_bounding_box(frame, cnts)
+
+        cv2.imshow("resize, blur, hsv", frame)
 
     #clean up cv2 mem
     cleanup(vs)
