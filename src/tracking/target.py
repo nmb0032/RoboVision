@@ -3,12 +3,36 @@ Describes a target or object detected by a computer vision
 algorithm. Will provide things like velocity and position
 @author: Nicholas Belvin
 """
-
+from collections import OrderedDict
 from dataclasses import dataclass
 from queue import Queue
+from time import time
 
 class Tracker:
-    pass
+    def __init__(self, maxItems=50, maxFramesMissing=50):
+        """ Creates a Tracker instance to manage Targets
+
+        Args:
+            maxItems (int, optional): [description]. Defaults to 50.
+            maxFramesMissing (int, optional): [description]. Defaults to 50.
+        """
+        self.nextID = 0
+        self.objects = OrderedDict()
+        self.disappeared = OrderedDict()
+        self.maxFramesMissing = maxFramesMissing
+        self.maxItems = maxItems
+
+    def update(self):
+        pass
+
+    def register(self, centroid):
+        tmp = Target(id=self.nextObjectID, start_time=time())
+        tmp.update(centroid)
+        self.objects[self.nextObjectID] = tmp
+        self.nextObjectID += 1
+
+    def deregister(self, objectID):
+        del self.objects[objectID]
 
 
 @dataclass
@@ -20,13 +44,14 @@ class Target:
 
     id: int
     start_time: float
+    disappeared: 0
     time_alive: float = 0.0
     pos_hist_queue: Queue = Queue(maxsize = MAX_POS_HIST_SIZE)
 
-    def update(self, pos, time):
+    def update(self, centroid, time):
         if self.pos_hist_queue.full():
             self.pos_hist_queue.get()
-        self.pos_hist_queue.put(pos)
+        self.pos_hist_queue.put(centroid)
         self.time_alive = time - self.start_time
 
     def get_pos(self):
