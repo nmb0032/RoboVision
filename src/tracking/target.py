@@ -3,6 +3,7 @@ Describes a target or object detected by a computer vision
 algorithm. Will provide things like velocity and position
 @author: Nicholas Belvin
 """
+from scipy.spatial import distance
 from collections import OrderedDict
 from dataclasses import dataclass
 from queue import Queue
@@ -22,8 +23,52 @@ class Tracker:
         self.maxFramesMissing = maxFramesMissing
         self.maxItems = maxItems
 
-    def update(self):
-        pass
+    def update(self, rects):
+        
+        if len(rects) == 0:
+            for objectID in list(self.dissappeared.keys()):
+                self.disappeared[objectID] += 1
+
+                if self.disappeared[objectID] > self.maxFramesMissing:
+                    self.deregister(objectID)
+            
+            return self.objects
+        
+        inputCentroids = np.zeros((len(rects), 2), dtype="int")
+
+        for(i, (startX, startY, endX, endY)) in enumerate(rects):
+
+            cX = int((startX + endX) / 2.0)
+            cY = int((startY + endY) / 2.0)
+            inputCentroids[i] = (cX, cY)
+
+        if len(self.objects) == 0:
+            for i in range(0, len(inputCentroids)):
+                self.register(inputCentroids[i])
+        else:
+            objectIDs = list(self.objects.keys())
+            objectCentroids = [target.get_pos() for target in self.objects]
+
+            D = distance.cdist(np.array(objectCentroids), inputCentroids)
+
+            rows = D.min(axis=1).argsort()
+
+            cols = D.argmin(axis=1)[rows]
+
+            usedRows = set()
+            usedCols = set()
+
+            for (row, col) in zip(rows, cols):
+                if row in usedRows or col in usedCols:
+                    continue
+
+                objectID = objectIDs[row]
+                self.objects[objectID].update(inputCentroids[col])
+                self.disappeared[objectID] = 0
+
+                usedRows.add(row)
+                usedCols.add(col)
+
 
     def register(self, centroid):
         tmp = Target(id=self.nextObjectID, start_time=time())
