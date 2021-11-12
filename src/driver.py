@@ -28,13 +28,24 @@ def getLog(nm, loglevel="DEBUG"):
     logger.addHandler(stream_handler)
     return logger
 
-def apply_bounding_boxes(frame, objects):
+def apply_bounding_boxes(frame, objects, rects, trails=True):
     for (objectID, target) in objects.items():
         pos = target.get_pos()
         text = "ID {}".format(objectID)
         cv2.putText(frame, text, (pos[0] - 10, pos[1] - 10),
             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
         cv2.circle(frame, (pos[0], pos[1]), 4, (0,255,0), -1)
+
+        if trails:
+            for i in range(1, len(target.pos_hist_queue.queue)):
+                pos0 = target.pos_hist_queue.queue[i-1]
+                pos1 = target.pos_hist_queue.queue[i]
+                cv2.line(frame, pos0, pos1, (0,255,0), 1)
+
+    for startX, startY, endX, endY in rects:
+        cv2.rectangle(frame, (startX, startY), (endX, endY), (0,255,0),2)
+    
+
 
 def main():
     logger = getLog('MAIN')
@@ -65,10 +76,10 @@ def main():
 
         #update tracker
         objects = ct.update(rects)
-        logger.debug(f"Objects Grabbed: {list(objects.keys())}")
+        logger.debug(f"Objects Grabbed:")
 
         #draw bounding boxes
-        apply_bounding_boxes(frame, objects)
+        apply_bounding_boxes(frame, objects, rects)
 
         cv2.imshow("Frame", frame)
 
