@@ -28,7 +28,7 @@ def get_contours(frame):
     return cnts
 
 
-def draw_bounding_box(frame, cnts):
+def draw_bounding_box(frame, cnts, width, focalLength):
         center = None
 
         if len(cnts) > 0:
@@ -36,6 +36,13 @@ def draw_bounding_box(frame, cnts):
             ((x, y), radius) = cv2.minEnclosingCircle(c)
             M = cv2.moments(c)
             center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
+
+            # DISTANCE ESTIMATION
+            marker = cv2.minAreaRect(c)
+            inches = distance_to_camera(width, focalLength, marker[1][0])
+            cv2.putText(frame, "%.2fft" % (inches /12), (frame.shape[1] - 200, frame.shape[0] - 20),
+            cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0,255,0), 3)
+            # DISTANCE ESTIMATION
 
             if radius > 10:
 
@@ -57,9 +64,15 @@ def load(filename):
 
 def performCapture(config):
 
+    #for distance estimation
+    KNOWN_WIDTH = 8.5   #12 inches
+    KNOWN_DISTANCE = 12 #Test note book 6 inch width
+
     upperRGB = tuple(config['color']['upper'])
     lowerRGB = tuple(config['color']['lower'])
     pts      = deque(maxlen=config["buffer"])
+
+    focalLength = None
 
     if config["video"] == None:
         vs = cv2.VideoCapture(0)
@@ -80,16 +93,36 @@ def performCapture(config):
         if frame is None or cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
+
         #computer vision
         filter = applyFilters(frame, lowerRGB, upperRGB)
         cnts  = get_contours(filter)
-        frame = draw_bounding_box(frame, cnts)
+        # one time focal length calc
+        if not focalLength:
+            focalLength = calcFocalLength(KNOWN_DISTANCE, KNOWN_WIDTH, cnts)
+        frame = draw_bounding_box(frame, cnts, KNOWN_WIDTH, focalLength)
 
         cv2.imshow("resize, blur, hsv", frame)
 
     #clean up cv2 mem
     cleanup(vs)
 
+def calcFocalLength(distance, width, cnts):
+    if len(cnts) > 0:
+        c = max(cnts, key=cv2.contourArea)
+        marker = cv2.minAreaRect(c)
+        return (marker[1][0] * distance) / width
+
+def distance_to_camera(knownWidth, focalLength, perWidth):
+    return (knownWidth * focalLength) / perWidth
+
+def apply_box_and_text(frame, marker, inches):
+    box = cv2.cv.BoxPoints(marker) if imutils.is_cv2() else cv2.boxPoints(marker)
+    box = np.int0(box)
+    cv2.drawContours(frame, [box], -1, (0, 255, 0), 2)
+    cv2.putText(frame, "%.2fft" % (inches /12), (frame.shape[1] - 200, frame.shape[0] - 20),
+                cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0,255,0), 3)
+    return frame
 
 def cleanup(vid):
     vid.release()
