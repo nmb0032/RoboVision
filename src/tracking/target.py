@@ -15,7 +15,7 @@ class Tracker:
     Inspiration
     https://www.pyimagesearch.com/2018/07/23/simple-object-tracking-with-opencv/
     """
-    def __init__(self, maxItems=50, maxFramesMissing=50):
+    def __init__(self, maxItems=50, maxFramesMissing=50, maxPosHistory=20):
         """ Creates a Tracker instance to manage Targets
 
         Args:
@@ -26,6 +26,7 @@ class Tracker:
         self.objects = OrderedDict()
         self.maxFramesMissing = maxFramesMissing
         self.maxItems = maxItems
+        self.maxPosHistory = maxPosHistory
 
     def update(self, rects):
         """Updates bounding boxes
@@ -105,7 +106,7 @@ class Tracker:
 
     def register(self, centroid):
         print(f"Registering new target ID: {self.nextID}, Centroid: {centroid}")
-        self.objects[self.nextID] = Target(id=self.nextID, start_time=time())
+        self.objects[self.nextID] = Target(id=self.nextID, start_time=time(), max_pos_hist=self.maxPosHistory)
         self.objects[self.nextID].update(centroid, time())
         self.nextID += 1
 
@@ -135,14 +136,13 @@ class Target:
     """
     Defines a target (contour) with some extra features
     """
-    MAX_POS_HIST_SIZE = 30
 
-    def __init__(self, id, start_time):
+    def __init__(self, id, start_time, max_pos_hist):
         self.id = id
         self.start_time = 0
         self.disappeared = 0
         self.time_alive = 0.0
-        self.pos_hist_queue = Queue(maxsize = Target.MAX_POS_HIST_SIZE)
+        self.pos_hist_queue = Queue(maxsize = max_pos_hist)
 
     def update(self, centroid, time):
         if self.pos_hist_queue.full():

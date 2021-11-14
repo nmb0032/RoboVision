@@ -1,0 +1,24 @@
+{
+    "video_src": "tracking\\models\\VehicleDetector\\cars_test.avi",
+    "logger_lvl": "ERROR",
+    "model": "CarDetector",
+    "tracking": 
+    {
+        "max_items": 50,
+        "max_ttl": 20,
+        "max_pos_history": 10
+    },
+    "labels":
+    {
+        "velocity": true,
+        "fps": true,
+        "center_marker": false,
+        "contour_trails": true
+    },
+    "distance":
+    {
+        "known_distance": 60,
+        "known_width": 25,
+        "active": false
+    }
+}

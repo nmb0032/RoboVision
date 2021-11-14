@@ -1,73 +1,70 @@
 from tracking.models.FaceDetector.opencvDNN import OpenCvFaceDetector
+from tracking.models.VehicleDetector.car_classifier import OpenCVCarDetector
 from tracking.target import Tracker
+from tracking.box import apply_bounding_boxes
+from distance import calibrate_distance
+from log import getLog
 from imutils.video import VideoStream
-import logging
 import numpy as np
 import argparse
 import imutils
+import json
 import time
 import cv2
+import os
 
-
-
-def getLog(nm, loglevel="DEBUG"):
-    #Creating custom logger
-    logger=logging.getLogger(nm)
-    #reading contents from properties file
-    if loglevel=="ERROR":
-        logger.setLevel(logging.ERROR)
-    elif loglevel=="DEBUG":
-        logger.setLevel(logging.DEBUG)
-    #Creating Formatters    
-    formatter=logging.Formatter('%(asctime)s:%(levelname)s:%(name)s:%(message)s')
-    #Creating Handlers
-    stream_handler=logging.StreamHandler()
-    #Adding Formatters to Handlers
-    stream_handler.setFormatter(formatter)
-    #Adding Handlers to logger
-    logger.addHandler(stream_handler)
-    return logger
-
-def apply_bounding_boxes(frame, objects, rects, trails=True):
-    for (objectID, target) in objects.items():
-        pos = target.get_pos()
-        text = "ID {}".format(objectID)
-        cv2.putText(frame, text, (pos[0] - 10, pos[1] - 10),
-            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-        cv2.circle(frame, (pos[0], pos[1]), 4, (0,255,0), -1)
-
-        if trails:
-            for i in range(1, len(target.pos_hist_queue.queue)):
-                pos0 = target.pos_hist_queue.queue[i-1]
-                pos1 = target.pos_hist_queue.queue[i]
-                cv2.line(frame, pos0, pos1, (0,255,0), 1)
-
-    for startX, startY, endX, endY in rects:
-        cv2.rectangle(frame, (startX, startY), (endX, endY), (0,255,0),2)
-    
+def load_json(filename):
+    with open(filename, 'r') as file:
+        return json.load(file)
 
 
 def main():
-    logger = getLog('MAIN')
+    #load json
+    config = load_json(os.path.join(".","settings.json"))
 
-    ct = Tracker()
+    logger = getLog('MAIN', config["logger_lvl"])
+
+    ct = Tracker(
+                maxItems=config['tracking']['max_items'],
+                maxFramesMissing=config['tracking']['max_ttl'],
+                maxPosHistory=config['tracking']['max_pos_history']
+                )
+
     (H, W) = (None, None)
 
     logger.debug('Loading model')
     # filter model intialized choice goes here
-    model = OpenCvFaceDetector()
+    if config['model'] == "FaceDetector":
+        model = OpenCvFaceDetector()
+    elif config['model'] == "CarDetector":
+        model = OpenCVCarDetector()
 
     logger.debug('Starting Video Stream')
-    vs = VideoStream(src=0).start()
+    if type(config['video_src']) is int:
+        camera = True
+    else: camera = False
+    if camera:
+        vs = VideoStream(src=config['video_src']).start()
+    else:
+        vs = cv2.VideoCapture(config['video_src'])
+
     logger.debug('Camera warmup 2.0 seconds')
     time.sleep(2.0)
 
-    while True:
-        frame = vs.read()
-        frame = imutils.resize(frame, width=400)
+    focal_length = None
+    #inital distance capture
+    if config['distance']['active']:
+        focal_length = calibrate_distance(vs, model, config['distance'])
 
-        if W is None or H is None:
-            (H, W) = frame.shape[:2]
+    while True:
+        if camera:
+            frame = vs.read()
+            frame = imutils.resize(frame, width=400)
+
+            if W is None or H is None:
+                (H, W) = frame.shape[:2]
+        else:
+            _, frame = vs.read()
 
         #filter goes here and returns rects
         logger.debug("Grabbing rects")
@@ -79,7 +76,7 @@ def main():
         logger.debug(f"Objects Grabbed:")
 
         #draw bounding boxes
-        apply_bounding_boxes(frame, objects, rects)
+        apply_bounding_boxes(frame, objects, rects, focal_length, config["labels"], config['distance'])
 
         cv2.imshow("Frame", frame)
 
